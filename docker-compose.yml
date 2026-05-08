@@ -44,8 +44,6 @@ services:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001}
     container_name: rota-dashboard
     restart: unless-stopped
     ports:

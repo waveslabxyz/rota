@@ -147,7 +147,7 @@ All settings are controlled through a single `.env` file (see `.env.example` for
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8001` | Public URL of the API — used by the browser |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8001` | Public URL of the API — used by the browser. In Docker images this is read at container start. |
 | `PROXY_PORT` | `8000` | Host port for the proxy server |
 | `API_PORT` | `8001` | Host port for the REST API |
 | `DASHBOARD_PORT` | `3000` | Host port for the web dashboard |
@@ -174,10 +174,10 @@ DB_PASSWORD=a-strong-random-password
 ROTA_ADMIN_PASSWORD=a-strong-password
 ```
 
-Then rebuild the dashboard (required when changing `NEXT_PUBLIC_API_URL`, as it is baked into the Next.js bundle at build time):
+Then start or restart the stack. The dashboard Docker image reads `NEXT_PUBLIC_API_URL` at container start, so changing it does not require rebuilding the image:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ### Using Docker

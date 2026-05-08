@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fira_Code } from "next/font/google";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${firaCode.variable} font-mono antialiased`}>
+        <Script src="/runtime-config.js" strategy="beforeInteractive" />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

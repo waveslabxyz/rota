@@ -29,13 +29,35 @@ import {
   CreatePoolAlertRuleRequest,
 } from "./types"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"
+type RotaRuntimeConfig = {
+  apiUrl?: string
+}
+
+declare global {
+  interface Window {
+    __ROTA_CONFIG__?: RotaRuntimeConfig
+  }
+}
+
+const DEFAULT_API_BASE_URL = "http://localhost:8001"
+const BUILD_TIME_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+
+const getApiBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    const runtimeApiUrl = window.__ROTA_CONFIG__?.apiUrl?.trim()
+    if (runtimeApiUrl) {
+      return runtimeApiUrl
+    }
+  }
+
+  return BUILD_TIME_API_BASE_URL || DEFAULT_API_BASE_URL
+}
 
 class ApiClient {
   private baseUrl: string
   private token: string | null = null
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = getApiBaseUrl()) {
     this.baseUrl = baseUrl
     // Load token from localStorage if available
     if (typeof window !== "undefined") {
@@ -449,9 +471,8 @@ class ApiClient {
 
   // ── Pool Export ──────────────────────────────────────────────────────────
   getPoolExportUrl(poolId: number, format: "txt" | "csv" = "txt"): string {
-    const base = typeof window !== "undefined" ? window.location.origin : API_BASE_URL
     const token = this.token
-    return `${base}/api/v1/pools/${poolId}/export?format=${format}${token ? `&token=${token}` : ""}`
+    return `${this.baseUrl}/api/v1/pools/${poolId}/export?format=${format}${token ? `&token=${token}` : ""}`
   }
 
   // ── Alert Rules ──────────────────────────────────────────────────────────
