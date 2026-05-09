@@ -87,7 +87,6 @@ jobs:
         with:
           context: ./core
           file: ./core/Dockerfile
-          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.core-meta.outputs.tags }}
           labels: ${{ steps.core-meta.outputs.labels }}
@@ -102,7 +101,6 @@ jobs:
         with:
           context: ./dashboard
           file: ./dashboard/Dockerfile
-          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.dashboard-meta.outputs.tags }}
           labels: ${{ steps.dashboard-meta.outputs.labels }}
