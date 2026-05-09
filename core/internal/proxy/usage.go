@@ -111,6 +111,7 @@ func (t *UsageTracker) updateProxyStats(ctx context.Context, record RequestRecor
 				ELSE $5
 			END,
 			status = CASE
+				WHEN status = 'suspended' THEN status
 				WHEN $2 THEN 'active'  -- Success = active
 				ELSE CASE
 					WHEN (failed_requests + 1) >= 3 THEN 'failed'  -- 3 consecutive failures = failed
@@ -143,7 +144,12 @@ func (t *UsageTracker) updateProxyStats(ctx context.Context, record RequestRecor
 func (t *UsageTracker) UpdateProxyStatus(ctx context.Context, proxyID int, status string) error {
 	query := `
 		UPDATE proxies
-		SET status = $1, updated_at = NOW()
+		SET
+			status = CASE
+				WHEN status = 'suspended' AND $1 NOT IN ('idle', 'suspended') THEN status
+				ELSE $1
+			END,
+			updated_at = NOW()
 		WHERE id = $2
 	`
 
@@ -175,7 +181,10 @@ func (t *UsageTracker) RecordHealthCheck(ctx context.Context, proxyID int, succe
 		SET
 			last_check = $1,
 			last_error = $2,
-			status = $3,
+			status = CASE
+				WHEN status = 'suspended' THEN status
+				ELSE $3
+			END,
 			updated_at = NOW()
 		WHERE id = $4
 	`

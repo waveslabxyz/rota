@@ -2,6 +2,23 @@ package models
 
 import "time"
 
+const (
+	ProxyStatusActive    = "active"
+	ProxyStatusFailed    = "failed"
+	ProxyStatusIdle      = "idle"
+	ProxyStatusSuspended = "suspended"
+)
+
+// IsValidProxyStatus reports whether status is a known proxy lifecycle state.
+func IsValidProxyStatus(status string) bool {
+	switch status {
+	case ProxyStatusActive, ProxyStatusFailed, ProxyStatusIdle, ProxyStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Proxy represents a proxy server
 type Proxy struct {
 	ID                 int       `json:"id"`

@@ -4,7 +4,7 @@ export interface Proxy {
   id: number
   address: string
   protocol: "http" | "https" | "socks4" | "socks4a" | "socks5"
-  status: "active" | "failed" | "idle"
+  status: "active" | "failed" | "idle" | "suspended"
   requests: number
   success_rate: number
   avg_response_time: number
@@ -170,7 +170,7 @@ export interface BulkDeleteRequest {
 export interface ProxyTestResult {
   id: number
   address: string
-  status: "active" | "failed"
+  status: "active" | "failed" | "suspended"
   response_time?: number
   error?: string
   tested_at: string

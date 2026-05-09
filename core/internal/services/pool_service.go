@@ -243,9 +243,9 @@ func (ps *PoolService) HealthCheckPool(ctx context.Context, poolID int, checkURL
 	}
 	for _, s := range slots {
 		result.Results = append(result.Results, s.result)
-		if s.result.Status == "active" {
+		if s.result.Status == models.ProxyStatusActive {
 			result.Active++
-		} else {
+		} else if s.result.Status == models.ProxyStatusFailed {
 			result.Failed++
 		}
 	}
@@ -269,13 +269,19 @@ func (ps *PoolService) checkOneProxyTimeout(ctx context.Context, p *models.Proxy
 		Address:  p.Address,
 		TestedAt: start,
 	}
+	if p.Status == models.ProxyStatusSuspended {
+		result.Status = models.ProxyStatusSuspended
+		msg := "proxy is suspended"
+		result.Error = &msg
+		return result
+	}
 
 	transport, err := proxy.CreateProxyTransport(p)
 	if err != nil {
-		result.Status = "failed"
+		result.Status = models.ProxyStatusFailed
 		msg := err.Error()
 		result.Error = &msg
-		ps.updateProxyStatus(ctx, p.ID, "failed")
+		ps.updateProxyStatus(ctx, p.ID, models.ProxyStatusFailed)
 		return result
 	}
 
@@ -292,10 +298,10 @@ func (ps *PoolService) checkOneProxyTimeout(ctx context.Context, p *models.Proxy
 	}
 	req, err := http.NewRequestWithContext(proxyCtx, http.MethodGet, targetURL, nil)
 	if err != nil {
-		result.Status = "failed"
+		result.Status = models.ProxyStatusFailed
 		msg := err.Error()
 		result.Error = &msg
-		ps.updateProxyStatus(ctx, p.ID, "failed")
+		ps.updateProxyStatus(ctx, p.ID, models.ProxyStatusFailed)
 		return result
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Rota/1.0)")
@@ -303,23 +309,23 @@ func (ps *PoolService) checkOneProxyTimeout(ctx context.Context, p *models.Proxy
 	resp, err := client.Do(req)
 	dur := int(time.Since(start).Milliseconds())
 	if err != nil {
-		result.Status = "failed"
+		result.Status = models.ProxyStatusFailed
 		msg := err.Error()
 		result.Error = &msg
-		ps.updateProxyStatus(ctx, p.ID, "failed")
+		ps.updateProxyStatus(ctx, p.ID, models.ProxyStatusFailed)
 		return result
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		result.Status = "active"
+		result.Status = models.ProxyStatusActive
 		result.ResponseTime = &dur
-		ps.updateProxyStatus(ctx, p.ID, "active")
+		ps.updateProxyStatus(ctx, p.ID, models.ProxyStatusActive)
 	} else {
-		result.Status = "failed"
+		result.Status = models.ProxyStatusFailed
 		msg := fmt.Sprintf("HTTP %d", resp.StatusCode)
 		result.Error = &msg
-		ps.updateProxyStatus(ctx, p.ID, "failed")
+		ps.updateProxyStatus(ctx, p.ID, models.ProxyStatusFailed)
 	}
 	return result
 }
@@ -327,7 +333,9 @@ func (ps *PoolService) checkOneProxyTimeout(ctx context.Context, p *models.Proxy
 // updateProxyStatus writes the new status to the DB
 func (ps *PoolService) updateProxyStatus(ctx context.Context, proxyID int, status string) {
 	ps.proxyRepo.GetDB().Pool.Exec(ctx,
-		`UPDATE proxies SET status = $1, last_check = NOW(), updated_at = NOW() WHERE id = $2`,
+		`UPDATE proxies
+		 SET status = $1, last_check = NOW(), updated_at = NOW()
+		 WHERE id = $2 AND status <> 'suspended'`,
 		status, proxyID)
 }
 
@@ -373,9 +381,9 @@ func (ps *PoolService) HealthCheckPoolWithProgress(
 
 			mu.Lock()
 			checked++
-			if res.Status == "active" {
+			if res.Status == models.ProxyStatusActive {
 				active++
-			} else {
+			} else if res.Status == models.ProxyStatusFailed {
 				failed++
 			}
 			c, a, f := checked, active, failed

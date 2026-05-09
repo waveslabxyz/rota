@@ -149,6 +149,15 @@ func New(cfg *config.Config, log *logger.Logger, db *database.DB) *Server {
 			}
 		}
 	})
+	proxyHandler.SetOnStatusUpdate(func(ctx context.Context) {
+		if s.proxyServer != nil {
+			if err := s.proxyServer.ReloadSettings(ctx); err != nil {
+				log.Error("failed to reload proxy pool after status update", "error", err)
+			} else {
+				log.Info("proxy pool reloaded after proxy status update")
+			}
+		}
+	})
 
 	// Alert watcher + proxy cleanup services
 	alertWatcher := services.NewAlertWatcher(poolRepo, log)
@@ -246,6 +255,8 @@ func (s *Server) setupRoutes() {
 		r.Put("/proxies/{id}", s.proxyHandler.Update)
 		r.Delete("/proxies/{id}", s.proxyHandler.Delete)
 		r.Post("/proxies/{id}/test", s.proxyHandler.Test)
+		r.Post("/proxies/{id}/suspend", s.proxyHandler.Suspend)
+		r.Post("/proxies/{id}/resume", s.proxyHandler.Resume)
 		r.Post("/proxies/reload", s.ReloadProxyPool)
 
 		// System logs

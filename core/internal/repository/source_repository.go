@@ -183,6 +183,7 @@ func (r *SourceRepository) DeleteStaleForSource(ctx context.Context, sourceID in
 	tag, err := r.db.Pool.Exec(ctx, `
 		DELETE FROM proxies
 		WHERE source_id = $1
+		  AND status <> 'suspended'
 		  AND last_seen_at IS NOT NULL
 		  AND last_seen_at < NOW() - make_interval(days => $2)
 	`, sourceID, maxAgeDays)

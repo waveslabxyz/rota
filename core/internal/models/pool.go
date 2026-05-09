@@ -92,6 +92,7 @@ func (pp *PoolProxy) ToProxy() *Proxy {
 		Protocol: pp.Protocol,
 		Username: pp.Username,
 		Password: pp.Password,
+		Status:   pp.Status,
 	}
 }
 

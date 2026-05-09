@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Fira_Code } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const firaCode = Fira_Code({
-  subsets: ["latin"],
+const firaCode = localFont({
+  src: "../public/fonts/FiraCode-VariableFont_wght.ttf",
   variable: "--font-fira-code",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "300 700",
 });
 
 export const metadata: Metadata = {

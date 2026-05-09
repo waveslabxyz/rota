@@ -245,6 +245,18 @@ class ApiClient {
     })
   }
 
+  async suspendProxy(id: number): Promise<Proxy> {
+    return this.request<Proxy>(`/api/v1/proxies/${id}/suspend`, {
+      method: "POST",
+    })
+  }
+
+  async resumeProxy(id: number): Promise<Proxy> {
+    return this.request<Proxy>(`/api/v1/proxies/${id}/resume`, {
+      method: "POST",
+    })
+  }
+
   async exportProxies(format: "txt" | "json" | "csv" = "txt", status?: string): Promise<Blob> {
     const params = new URLSearchParams({ format })
     if (status) params.append("status", status)

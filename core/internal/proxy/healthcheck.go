@@ -181,6 +181,7 @@ func (h *HealthChecker) CheckAllProxies(ctx context.Context) ([]models.ProxyTest
 			requests, successful_requests, failed_requests,
 			avg_response_time, last_check, last_error, created_at, updated_at
 		FROM proxies
+		WHERE status <> 'suspended'
 		ORDER BY address
 	`
 

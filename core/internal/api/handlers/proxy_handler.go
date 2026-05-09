@@ -22,9 +22,10 @@ type HealthChecker interface {
 
 // ProxyHandler handles proxy management endpoints
 type ProxyHandler struct {
-	proxyRepo     *repository.ProxyRepository
-	healthChecker HealthChecker
-	logger        *logger.Logger
+	proxyRepo      *repository.ProxyRepository
+	healthChecker  HealthChecker
+	logger         *logger.Logger
+	onStatusUpdate func(context.Context)
 }
 
 // NewProxyHandler creates a new ProxyHandler
@@ -34,6 +35,11 @@ func NewProxyHandler(proxyRepo *repository.ProxyRepository, healthChecker Health
 		healthChecker: healthChecker,
 		logger:        log,
 	}
+}
+
+// SetOnStatusUpdate sets a callback invoked after a proxy status change.
+func (h *ProxyHandler) SetOnStatusUpdate(fn func(context.Context)) {
+	h.onStatusUpdate = fn
 }
 
 // List handles proxy listing with pagination and filters
@@ -222,6 +228,65 @@ func (h *ProxyHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if proxy == nil {
 		h.errorResponse(w, http.StatusNotFound, "Proxy not found")
 		return
+	}
+
+	h.jsonResponse(w, http.StatusOK, proxy)
+}
+
+// Suspend marks a proxy as suspended so it is excluded from rotation without deleting it.
+//	@Summary		Suspend proxy
+//	@Description	Temporarily suspend a proxy without deleting it
+//	@Tags			proxies
+//	@Produce		json
+//	@Param			id	path		int				true	"Proxy ID"
+//	@Success		200	{object}	models.Proxy	"Suspended proxy"
+//	@Failure		400	{object}	models.ErrorResponse
+//	@Failure		404	{object}	models.ErrorResponse
+//	@Failure		500	{object}	models.ErrorResponse
+//	@Router			/proxies/{id}/suspend [post]
+func (h *ProxyHandler) Suspend(w http.ResponseWriter, r *http.Request) {
+	h.setProxyStatus(w, r, models.ProxyStatusSuspended)
+}
+
+// Resume marks a suspended proxy as idle so it can re-enter rotation.
+//	@Summary		Resume proxy
+//	@Description	Resume a suspended proxy by returning it to idle status
+//	@Tags			proxies
+//	@Produce		json
+//	@Param			id	path		int				true	"Proxy ID"
+//	@Success		200	{object}	models.Proxy	"Resumed proxy"
+//	@Failure		400	{object}	models.ErrorResponse
+//	@Failure		404	{object}	models.ErrorResponse
+//	@Failure		500	{object}	models.ErrorResponse
+//	@Router			/proxies/{id}/resume [post]
+func (h *ProxyHandler) Resume(w http.ResponseWriter, r *http.Request) {
+	h.setProxyStatus(w, r, models.ProxyStatusIdle)
+}
+
+func (h *ProxyHandler) setProxyStatus(w http.ResponseWriter, r *http.Request, status string) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.errorResponse(w, http.StatusBadRequest, "Invalid proxy ID")
+		return
+	}
+
+	proxy, err := h.proxyRepo.SetStatus(r.Context(), id, status)
+	if err != nil {
+		h.logger.Error("failed to update proxy status", "error", err, "proxy_id", id, "status", status)
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to update proxy status")
+		return
+	}
+
+	if proxy == nil {
+		h.errorResponse(w, http.StatusNotFound, "Proxy not found")
+		return
+	}
+
+	if h.onStatusUpdate != nil {
+		reloadCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		h.onStatusUpdate(reloadCtx)
 	}
 
 	h.jsonResponse(w, http.StatusOK, proxy)

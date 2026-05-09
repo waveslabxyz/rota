@@ -27,6 +27,8 @@ import {
   XCircle,
   AlertCircle,
   Filter,
+  PauseCircle,
+  PlayCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -230,6 +232,28 @@ export default function ProxiesPage() {
     } catch (error) {
       console.error("Failed to test proxy:", error)
       toast.error("Failed to test proxy", error instanceof Error ? error.message : "Unknown error")
+    }
+  }
+
+  const handleSuspendProxy = async (proxy: Proxy) => {
+    try {
+      await api.suspendProxy(proxy.id)
+      toast.success("Proxy suspended", `${proxy.address} is no longer used for rotation`)
+      fetchProxies()
+    } catch (error) {
+      console.error("Failed to suspend proxy:", error)
+      toast.error("Failed to suspend proxy", error instanceof Error ? error.message : "Unknown error")
+    }
+  }
+
+  const handleResumeProxy = async (proxy: Proxy) => {
+    try {
+      await api.resumeProxy(proxy.id)
+      toast.success("Proxy resumed", `${proxy.address} is back in rotation as idle`)
+      fetchProxies()
+    } catch (error) {
+      console.error("Failed to resume proxy:", error)
+      toast.error("Failed to resume proxy", error instanceof Error ? error.message : "Unknown error")
     }
   }
 
@@ -483,21 +507,18 @@ export default function ProxiesPage() {
       },
       cell: ({ row }) => {
         const status = row.getValue("status") as string
-        const statusMap = {
-          active: "online" as const,
-          failed: "offline" as const,
-          idle: "idle" as const,
-        }
         const statusColors = {
           active: "text-green-600",
           failed: "text-red-600",
           idle: "text-yellow-600",
+          suspended: "text-slate-500",
         }
         return (
           <div className={`flex items-center gap-2 ${statusColors[status as keyof typeof statusColors]}`}>
             <div className={`h-2 w-2 rounded-full ${
               status === 'active' ? 'bg-green-600' :
               status === 'failed' ? 'bg-red-600' :
+              status === 'suspended' ? 'bg-slate-500' :
               'bg-yellow-600'
             }`} />
             <span className="capitalize font-medium">{status}</span>
@@ -578,6 +599,17 @@ export default function ProxiesPage() {
               <DropdownMenuItem onClick={() => handleTestProxy(proxy.id)}>
                 Test proxy
               </DropdownMenuItem>
+              {proxy.status === "suspended" ? (
+                <DropdownMenuItem onClick={() => handleResumeProxy(proxy)}>
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Resume
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => handleSuspendProxy(proxy)}>
+                  <PauseCircle className="mr-2 h-4 w-4" />
+                  Suspend
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => {
                 setEditingProxy(proxy)
                 setIsEditDialogOpen(true)
@@ -743,6 +775,7 @@ export default function ProxiesPage() {
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="failed">Failed</SelectItem>
                         <SelectItem value="idle">Idle</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -299,6 +299,7 @@ func (r *ProxyRepository) DeleteDeadProxies(ctx context.Context, maxFailedDays i
 		tag, err := r.db.Pool.Exec(ctx, `
 			DELETE FROM proxies
 			WHERE requests >= 10
+			  AND status <> 'suspended'
 			  AND (successful_requests::float / requests::float * 100) < $1`,
 			minSuccessRate)
 		if err != nil {
@@ -307,6 +308,27 @@ func (r *ProxyRepository) DeleteDeadProxies(ctx context.Context, maxFailedDays i
 		total += tag.RowsAffected()
 	}
 	return int(total), nil
+}
+
+// SetStatus updates a proxy lifecycle status.
+func (r *ProxyRepository) SetStatus(ctx context.Context, id int, status string) (*models.Proxy, error) {
+	if !models.IsValidProxyStatus(status) {
+		return nil, fmt.Errorf("invalid proxy status %q", status)
+	}
+
+	tag, err := r.db.Pool.Exec(ctx, `
+		UPDATE proxies
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
+	`, status, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update proxy status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, nil
+	}
+
+	return r.GetByID(ctx, id)
 }
 
 // Update updates a proxy
@@ -371,6 +393,7 @@ func (r *ProxyRepository) GetStats(ctx context.Context) (map[string]interface{},
 			COUNT(*) FILTER (WHERE status = 'active') as active,
 			COUNT(*) FILTER (WHERE status = 'failed') as failed,
 			COUNT(*) FILTER (WHERE status = 'idle') as idle,
+			COUNT(*) FILTER (WHERE status = 'suspended') as suspended,
 			COALESCE(SUM(requests), 0) as total_requests,
 			COALESCE(AVG(avg_response_time), 0) as avg_response_time
 		FROM proxies
@@ -381,13 +404,14 @@ func (r *ProxyRepository) GetStats(ctx context.Context) (map[string]interface{},
 		Active          int
 		Failed          int
 		Idle            int
+		Suspended       int
 		TotalRequests   int64
 		AvgResponseTime float64
 	}
 
 	err := r.db.Pool.QueryRow(ctx, query).Scan(
 		&stats.Total, &stats.Active, &stats.Failed, &stats.Idle,
-		&stats.TotalRequests, &stats.AvgResponseTime,
+		&stats.Suspended, &stats.TotalRequests, &stats.AvgResponseTime,
 	)
 
 	if err != nil {
@@ -399,6 +423,7 @@ func (r *ProxyRepository) GetStats(ctx context.Context) (map[string]interface{},
 		"active":            stats.Active,
 		"failed":            stats.Failed,
 		"idle":              stats.Idle,
+		"suspended":         stats.Suspended,
 		"total_requests":    stats.TotalRequests,
 		"avg_response_time": int(stats.AvgResponseTime),
 	}, nil
